@@ -5,9 +5,12 @@ import { FieldNumber } from 'src/FieldTypes/number';
 import { FieldPath } from 'src/FieldTypes/path';
 import { FieldString } from 'src/FieldTypes/string';
 import { FileSystemConfig, invalidConfigName } from 'src/types/fileSystemConfig';
+import FieldConfigGroup from './configGroupField';
+import { PROXY_FIELD } from './proxyFields';
 
 export type FieldChanged<K = string, V = any> = (field: K, newValue: V) => void;
 export type FSCChanged<K extends keyof FileSystemConfig = keyof FileSystemConfig & string> = FieldChanged<K, FileSystemConfig[K]>;
+export type FSCChangedMultiple = (newConfig: Partial<FileSystemConfig>) => void;
 
 function pathValidator(value?: string): string | null {
   if (!value) return null;
@@ -36,6 +39,12 @@ export function label(config: FileSystemConfig, onChange: FSCChanged<'label'>): 
   return <FieldString key="label" label="Label" value={config.label} onChange={callback} optional={true} description={description} />
 }
 
+export function group(config: FileSystemConfig, onChange: FSCChanged<'group'>): React.ReactElement {
+  const callback = (newValue: string) => onChange('group', newValue);
+  const description = 'Group for this config, to group configs together in some UI places. Allows subgroups, in the format "Group1.SubGroup1.Subgroup2"';
+  return <FieldConfigGroup key="group" label="Group" value={config.group} {...{ description }} onChange={callback} optional={true} />
+}
+
 export function putty(config: FileSystemConfig, onChange: FSCChanged<'putty'>): React.ReactElement {
   const callback = (newValue: string) => onChange('putty', newValue === '<Auto-detect>' ? true : newValue);
   const description = 'A name of a PuTTY session, or `true` to find the PuTTY session from the host address';
@@ -51,7 +60,7 @@ export function host(config: FileSystemConfig, onChange: FSCChanged<'host'>): Re
 }
 
 export function port(config: FileSystemConfig, onChange: FSCChanged<'port'>): React.ReactElement {
-  const callback = (value: number) => onChange('port', value === 22 ? undefined : value);
+  const callback = (value: number) => onChange('port', value);
   const description = 'Port number of the server. Supports environment variables, e.g. $PORT';
   return <FieldNumber key="port" label="Port" value={config.port} onChange={callback} optional={true} description={description} />
 }
@@ -65,7 +74,7 @@ export function root(config: FileSystemConfig, onChange: FSCChanged<'root'>): Re
 export function agent(config: FileSystemConfig, onChange: FSCChanged<'agent'>): React.ReactElement {
   const callback = (newValue: string) => onChange('agent', newValue === 'pageant' ? (true as any) : newValue);
   const description = `Path to ssh-agent's UNIX socket for ssh-agent-based user authentication. Supports 'pageant' for PuTTY's Pagent, and environment variables, e.g. $SSH_AUTH_SOCK`;
-  const values = ['pageant', '$SSH_AUTH_SOCK'];
+  const values = ['pageant', '//./pipe/openssh-ssh-agent', '$SSH_AUTH_SOCK'];
   const value = (config.agent as any) === true ? 'pageant' : config.agent;
   return <FieldDropdownWithInput key="agent" label="Agent" {...{ value, values, description }} onChange={callback} optional={true} />
 }
@@ -100,5 +109,8 @@ export function passphrase(config: FileSystemConfig, onChange: FSCChanged<'passp
   return <FieldDropdownWithInput key="passphrase" label="Passphrase" {...{ value, values, description }} onChange={callback} optional={true} />
 }
 
-type FieldFactory = (config: FileSystemConfig, onChange: FSCChanged) => React.ReactElement;
-export const FIELDS: FieldFactory[] = [name, merge, label, putty, host, port, root, agent, username, password, privateKeyPath, passphrase];
+export type FieldFactory = (config: FileSystemConfig, onChange: FSCChanged, onChangeMultiple: FSCChangedMultiple) => React.ReactElement | null;
+export const FIELDS: FieldFactory[] = [
+  name, merge, label, group, putty, host, port,
+  root, agent, username, password, privateKeyPath, passphrase,
+  PROXY_FIELD];
